@@ -64,6 +64,13 @@ class VpnHandler extends TaskHandler {
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
+    await player.setAudioContext(AudioContext(
+      android: AudioContextAndroid(
+        usageType: AndroidUsageType.notification,
+        contentType: AndroidContentType.sonification,
+        audioFocus: AndroidAudioFocus.none,
+      ),
+    ));
     update(await Connectivity().checkConnectivity());
     sub = Connectivity().onConnectivityChanged.listen(update);
   }
