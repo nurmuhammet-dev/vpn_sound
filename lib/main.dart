@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -44,6 +45,7 @@ Uint8List makeTone(List<double> freqs) {
 
 @pragma('vm:entry-point')
 void startCallback() {
+  DartPluginRegistrant.ensureInitialized();
   FlutterForegroundTask.setTaskHandler(VpnHandler());
 }
 
@@ -57,6 +59,9 @@ class VpnHandler extends TaskHandler {
   void update(List<ConnectivityResult> list) {
     final now = list.contains(ConnectivityResult.vpn);
     if (vpn != null && now != vpn) {
+      FlutterForegroundTask.updateService(
+        notificationText: now ? 'VPN включён' : 'VPN выключен',
+      );
       play(now ? onSound : offSound);
     }
     vpn = now;
@@ -65,7 +70,11 @@ class VpnHandler extends TaskHandler {
   Future<void> play(Uint8List data) async {
     try {
       await player.play(BytesSource(data));
-    } catch (e) {}
+    } catch (e) {
+      FlutterForegroundTask.updateService(
+        notificationText: 'Ошибка звука: $e',
+      );
+    }
   }
 
   @override
@@ -75,12 +84,16 @@ class VpnHandler extends TaskHandler {
     try {
       await player.setAudioContext(AudioContext(
         android: AudioContextAndroid(
-          usageType: AndroidUsageType.notification,
+          usageType: AndroidUsageType.alarm,
           contentType: AndroidContentType.sonification,
           audioFocus: AndroidAudioFocus.none,
         ),
       ));
-    } catch (e) {}
+    } catch (e) {
+      FlutterForegroundTask.updateService(
+        notificationText: 'Ошибка настройки: $e',
+      );
+    }
     await play(onSound);
   }
 
