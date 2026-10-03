@@ -14,6 +14,11 @@ jobs:
         with:
           channel: stable
       - run: flutter create --platforms=android --project-name vpn_sound .
+      - name: Patch manifest
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/><uses-permission android:name="android.permission.WAKE_LOCK"/>' $M
+          sed -i 's#</application>#<service android:name="com.pravera.flutter_foreground_task.service.ForegroundService" android:foregroundServiceType="specialUse" android:exported="false"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="vpn_monitor"/></service></application>#' $M
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: softprops/action-gh-release@v2
