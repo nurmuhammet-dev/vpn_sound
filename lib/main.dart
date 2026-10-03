@@ -57,22 +57,31 @@ class VpnHandler extends TaskHandler {
   void update(List<ConnectivityResult> list) {
     final now = list.contains(ConnectivityResult.vpn);
     if (vpn != null && now != vpn) {
-      player.play(BytesSource(now ? onSound : offSound));
+      play(now ? onSound : offSound);
     }
     vpn = now;
   }
 
+  Future<void> play(Uint8List data) async {
+    try {
+      await player.play(BytesSource(data));
+    } catch (e) {}
+  }
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    await player.setAudioContext(AudioContext(
-      android: AudioContextAndroid(
-        usageType: AndroidUsageType.notification,
-        contentType: AndroidContentType.sonification,
-        audioFocus: AndroidAudioFocus.none,
-      ),
-    ));
-    update(await Connectivity().checkConnectivity());
     sub = Connectivity().onConnectivityChanged.listen(update);
+    update(await Connectivity().checkConnectivity());
+    try {
+      await player.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          usageType: AndroidUsageType.notification,
+          contentType: AndroidContentType.sonification,
+          audioFocus: AndroidAudioFocus.none,
+        ),
+      ));
+    } catch (e) {}
+    await play(onSound);
   }
 
   @override
