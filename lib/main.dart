@@ -4,8 +4,7 @@ import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-
-void main() => runApp(const MyApp());
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 Uint8List makeTone(List<double> freqs) {
   const rate = 44100;
@@ -43,6 +42,59 @@ Uint8List makeTone(List<double> freqs) {
   return d.buffer.asUint8List();
 }
 
+@pragma('vm:entry-point')
+void startCallback() {
+  FlutterForegroundTask.setTaskHandler(VpnHandler());
+}
+
+class VpnHandler extends TaskHandler {
+  final player = AudioPlayer();
+  final onSound = makeTone([600, 900]);
+  final offSound = makeTone([900, 600]);
+  bool? vpn;
+  StreamSubscription? sub;
+
+  void update(List<ConnectivityResult> list) {
+    final now = list.contains(ConnectivityResult.vpn);
+    if (vpn != null && now != vpn) {
+      player.play(BytesSource(now ? onSound : offSound));
+    }
+    vpn = now;
+  }
+
+  @override
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
+    update(await Connectivity().checkConnectivity());
+    sub = Connectivity().onConnectivityChanged.listen(update);
+  }
+
+  @override
+  void onRepeatEvent(DateTime timestamp) {}
+
+  @override
+  Future<void> onDestroy(DateTime timestamp) async {
+    sub?.cancel();
+    player.dispose();
+  }
+}
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  FlutterForegroundTask.init(
+    androidNotificationOptions: AndroidNotificationOptions(
+      channelId: 'vpn_sound',
+      channelName: 'VPN Sound',
+      channelImportance: NotificationChannelImportance.LOW,
+      priority: NotificationPriority.LOW,
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(),
+    foregroundTaskOptions: ForegroundTaskOptions(
+      eventAction: ForegroundTaskEventAction.nothing(),
+    ),
+  );
+  runApp(const MyApp());
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
@@ -57,18 +109,28 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  final player = AudioPlayer();
-  final onSound = makeTone([600, 900]);
-  final offSound = makeTone([900, 600]);
   bool? vpn;
   StreamSubscription? sub;
 
   void update(List<ConnectivityResult> list) {
-    final now = list.contains(ConnectivityResult.vpn);
-    if (vpn != null && now != vpn) {
-      player.play(BytesSource(now ? onSound : offSound));
+    setState(() => vpn = list.contains(ConnectivityResult.vpn));
+  }
+
+  Future<void> startService() async {
+    final perm = await FlutterForegroundTask.checkNotificationPermission();
+    if (perm != NotificationPermission.granted) {
+      await FlutterForegroundTask.requestNotificationPermission();
     }
-    setState(() => vpn = now);
+    if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
+      await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+    }
+    if (await FlutterForegroundTask.isRunningService) return;
+    await FlutterForegroundTask.startService(
+      serviceId: 256,
+      notificationTitle: 'VPN Sound',
+      notificationText: 'Слежу за VPN',
+      callback: startCallback,
+    );
   }
 
   @override
@@ -76,12 +138,12 @@ class _HomeState extends State<Home> {
     super.initState();
     Connectivity().checkConnectivity().then(update);
     sub = Connectivity().onConnectivityChanged.listen(update);
+    startService();
   }
 
   @override
   void dispose() {
     sub?.cancel();
-    player.dispose();
     super.dispose();
   }
 
