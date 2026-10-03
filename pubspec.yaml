@@ -1,0 +1,13 @@
+name: vpn_sound
+description: VPN sound notifier
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  connectivity_plus: ^6.0.0
+  audioplayers: ^6.0.0
+flutter:
+  uses-material-design: true
