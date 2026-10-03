@@ -13,7 +13,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - run: flutter create --platforms=android --project-name vpn_sound .
+      - run: flutter create --org com.bratishka --platforms=android --project-name vpn_sound .
       - name: Patch manifest
         run: |
           M=android/app/src/main/AndroidManifest.xml
